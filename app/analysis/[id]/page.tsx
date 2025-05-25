@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Play, Pause, Volume2, Download, Share2, RefreshCw, CheckCircle } from "lucide-react"
+import { ArrowLeft, Play, Pause, Volume2, Download, Share2, RefreshCw, CheckCircle, MessageSquare } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import FeedbackModal from "@/components/feedback-modal"
 
 export default function AnalysisResultPage() {
   const params = useParams()
@@ -14,6 +15,7 @@ export default function AnalysisResultPage() {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
 
   // Mock analysis data - in real app this would come from API
   const analysisData = {
@@ -105,6 +107,11 @@ export default function AnalysisResultPage() {
       }
     }
   }, [])
+
+  const handleFeedbackSubmit = (feedbackData: any) => {
+    console.log("Feedback submitted:", feedbackData)
+    // Here you would typically send the feedback to your backend
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-100 py-8">
@@ -285,12 +292,14 @@ export default function AnalysisResultPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6">
-                    <Link
-                      href={`/birds/${analysisData.primaryResult.id}`}
-                      className="btn-primary inline-flex items-center"
-                    >
-                      View Full Species Details
+                  {/* Feedback Actions */}
+                  <div className="mt-6 flex gap-4">
+                    <button onClick={() => setShowFeedbackModal(true)} className="btn-primary flex items-center">
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      ประเมินผลการระบุ
+                    </button>
+                    <Link href={`/feedback/${id}`} className="btn-outline flex items-center">
+                      แบบประเมินแบบเต็ม
                     </Link>
                   </div>
                 </div>
@@ -390,6 +399,19 @@ export default function AnalysisResultPage() {
             </div>
           </div>
         </div>
+        {/* Feedback Modal */}
+        <FeedbackModal
+          isOpen={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+          birdData={{
+            id: analysisData.primaryResult.id,
+            thaiName: analysisData.primaryResult.thaiName,
+            commonName: analysisData.primaryResult.commonName,
+            scientificName: analysisData.primaryResult.scientificName,
+            confidence: analysisData.primaryResult.confidence,
+          }}
+          onSubmitFeedback={handleFeedbackSubmit}
+        />
       </div>
     </div>
   )

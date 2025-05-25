@@ -5,6 +5,7 @@ import FileUpload from "@/components/file-upload"
 import { Brain, Zap, Target, Clock } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useAudioPrediction } from "@/hooks/use-api"
 
 export default function AnalyzePage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -19,7 +20,9 @@ export default function AnalyzePage() {
     "Generating results...",
   ]
 
-  const handleAnalyze = () => {
+  const { predictBird, loading: predicting, error: predictionError } = useAudioPrediction()
+
+  const handleAnalyze = async () => {
     setIsAnalyzing(true)
     setAnalysisStep(0)
 
@@ -27,17 +30,28 @@ export default function AnalyzePage() {
       setAnalysisStep((prev) => {
         if (prev >= analysisSteps.length - 1) {
           clearInterval(interval)
-          setTimeout(() => {
-            setIsAnalyzing(false)
-            // Generate a mock analysis ID and redirect to results
-            const analysisId = `analysis_${Date.now()}`
-            router.push(`/analysis/${analysisId}`)
-          }, 1000)
           return prev
         }
         return prev + 1
       })
     }, 800)
+
+    try {
+      // This would be called from FileUpload component with actual file
+      // For now, simulate the process
+      setTimeout(async () => {
+        clearInterval(interval)
+        setIsAnalyzing(false)
+
+        // Generate a mock analysis ID and redirect to results
+        const analysisId = `analysis_${Date.now()}`
+        router.push(`/analysis/${analysisId}`)
+      }, 4000)
+    } catch (error) {
+      clearInterval(interval)
+      setIsAnalyzing(false)
+      console.error("Analysis failed:", error)
+    }
   }
 
   return (

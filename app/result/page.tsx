@@ -2,11 +2,13 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { CheckCircle, X, HelpCircle, Share2, Download, Volume2, MapPin } from "lucide-react"
+import { CheckCircle, Share2, Download, Volume2, MapPin, MessageSquare } from "lucide-react"
 import Link from "next/link"
+import FeedbackModal from "@/components/feedback-modal"
 
 export default function ResultPage() {
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
 
   const handleFeedback = (type: string) => {
     setFeedback(type)
@@ -14,6 +16,11 @@ export default function ResultPage() {
     setTimeout(() => {
       // Redirect or show success message
     }, 1000)
+  }
+
+  const handleFeedbackSubmit = (feedbackData: any) => {
+    console.log("Feedback submitted:", feedbackData)
+    setFeedback("submitted")
   }
 
   return (
@@ -79,42 +86,34 @@ export default function ResultPage() {
 
             {/* Action Buttons */}
             <div className="space-y-4">
-              <div className="text-center mb-4">
-                <p className="text-slate-600 font-medium">Was this identification correct?</p>
-              </div>
-
-              {feedback ? (
+              {feedback === "submitted" ? (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <CheckCircle className="h-8 w-8 text-emerald-600" />
                   </div>
-                  <p className="text-lg font-semibold text-emerald-700">Thank you for your feedback!</p>
-                  <p className="text-slate-600">Your input helps improve our AI model.</p>
+                  <p className="text-lg font-semibold text-emerald-700">ขอบคุณสำหรับความคิดเห็น!</p>
+                  <p className="text-slate-600">Thank you for your feedback!</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <button
-                    onClick={() => handleFeedback("correct")}
-                    className="btn-primary flex items-center justify-center"
-                  >
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    ถูกต้อง
-                  </button>
-                  <button
-                    onClick={() => handleFeedback("unsure")}
-                    className="btn-secondary flex items-center justify-center"
-                  >
-                    <HelpCircle className="h-5 w-5 mr-2" />
-                    ไม่ทราบ
-                  </button>
-                  <button
-                    onClick={() => handleFeedback("incorrect")}
-                    className="btn-danger flex items-center justify-center"
-                  >
-                    <X className="h-5 w-5 mr-2" />
-                    ไม่ถูกต้อง
-                  </button>
-                </div>
+                <>
+                  <div className="text-center mb-4">
+                    <p className="text-slate-600 font-medium">การระบุนกนี้ถูกต้องหรือไม่?</p>
+                    <p className="text-sm text-slate-500">Was this identification correct?</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                      onClick={() => setShowFeedbackModal(true)}
+                      className="btn-primary flex items-center justify-center"
+                    >
+                      <MessageSquare className="h-5 w-5 mr-2" />
+                      ประเมินผลการระบุ
+                    </button>
+                    <Link href="/feedback/result_001" className="btn-outline flex items-center justify-center">
+                      แบบประเมินแบบเต็ม
+                    </Link>
+                  </div>
+                </>
               )}
             </div>
 
@@ -151,6 +150,20 @@ export default function ResultPage() {
           </div>
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        birdData={{
+          id: "b004",
+          thaiName: "นกกระจอกบ้าน",
+          commonName: "Eurasian Tree Sparrow",
+          scientificName: "Passer montanus (Linnaeus, 1758)",
+          confidence: 75.43,
+        }}
+        onSubmitFeedback={handleFeedbackSubmit}
+      />
     </div>
   )
 }

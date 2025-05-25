@@ -1,7 +1,6 @@
 "use client"
 
 import React from "react"
-
 import { useState } from "react"
 import {
   Search,
@@ -15,13 +14,20 @@ import {
   ChevronDown,
   ChevronUp,
   Volume2,
+  MessageSquare,
+  Star,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import FeedbackModal from "@/components/feedback-modal"
+import { useBirds } from "@/hooks/use-api"
+import { useHealthCheck } from "@/hooks/use-api"
 
 export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedFilter, setSelectedFilter] = useState("all")
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [selectedBirdForFeedback, setSelectedBirdForFeedback] = useState<any>(null)
   const router = useRouter()
 
   const stats = [
@@ -31,87 +37,44 @@ export default function Dashboard() {
     { label: "This Month", value: "2,341", icon: Calendar, color: "orange" },
   ]
 
-  const birds = [
-    {
-      id: "b001",
-      thaiName: "อีกา",
-      commonName: "Eastern Jungle Crow",
-      scientificName: "Corvus levaillantii (Lesson, 1831)",
-      found: "Pathum Thani, Khlong Luang",
-      confidence: "94.2%",
-      lastSeen: "2 hours ago",
-      status: "active",
-      habitat: "Urban areas, agricultural lands",
-      description: "Large, all-black bird with a thick bill. Common in urban and rural settings across Thailand.",
-      sightings: 156,
-      recordings: 42,
-      firstRecorded: "Jan 15, 2023",
-    },
-    {
-      id: "b002",
-      thaiName: "นกเอี้ยงสาริกา",
-      commonName: "Common Myna",
-      scientificName: "Acridotheres tristis (Linnaeus, 1766)",
-      found: "Pathum Thani, Khlong Luang",
-      confidence: "89.7%",
-      lastSeen: "5 hours ago",
-      status: "active",
-      habitat: "Urban parks, gardens, agricultural areas",
-      description:
-        "Medium-sized bird with brown body, black head and yellow bill and legs. Highly adaptable to human environments.",
-      sightings: 203,
-      recordings: 67,
-      firstRecorded: "Dec 3, 2022",
-    },
-    {
-      id: "b003",
-      thaiName: "นกเขาไฟ",
-      commonName: "Red Collared Dove",
-      scientificName: "Streptopelia tranquebarica (Hermann, 1804)",
-      found: "Pathum Thani, Khlong Luang",
-      confidence: "87.3%",
-      lastSeen: "1 day ago",
-      status: "inactive",
-      habitat: "Open woodlands, agricultural fields",
-      description: "Small dove with distinctive red collar in males. Common in rural and suburban areas.",
-      sightings: 89,
-      recordings: 23,
-      firstRecorded: "Mar 8, 2023",
-    },
-    {
-      id: "b004",
-      thaiName: "นกกระจอกบ้าน",
-      commonName: "Eurasian Tree Sparrow",
-      scientificName: "Passer montanus (Linnaeus, 1758)",
-      found: "Pathum Thani, Khlong Luang",
-      confidence: "92.1%",
-      lastSeen: "3 hours ago",
-      status: "active",
-      habitat: "Urban areas, villages, agricultural lands",
-      description: "Small, brown bird with chestnut crown and black cheek patch. Very common in human settlements.",
-      sightings: 312,
-      recordings: 98,
-      firstRecorded: "Nov 12, 2022",
-    },
-    {
-      id: "b005",
-      thaiName: "นกพิราบป่า",
-      commonName: "Rock Pigeon",
-      scientificName: "Columba livia (Gmelin, 1789)",
-      found: "Pathum Thani, Khlong Luang",
-      confidence: "96.8%",
-      lastSeen: "1 hour ago",
-      status: "active",
-      habitat: "Urban areas, cliffs, rocky areas",
-      description: "Medium-sized pigeon with variable coloration. Extremely common in urban environments worldwide.",
-      sightings: 427,
-      recordings: 112,
-      firstRecorded: "Oct 5, 2022",
-    },
-  ]
+  const { birds, loading, error, refetch } = useBirds()
+  const apiStatus = useHealthCheck()
 
-  const filteredBirds = birds.filter(
-    (bird) => bird.commonName.toLowerCase().includes(searchTerm.toLowerCase()) || bird.thaiName.includes(searchTerm),
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-100 py-8">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-slate-600">Loading bird data...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-100 py-8">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <p className="text-red-600 mb-4">Error loading data: {error}</p>
+              <button onClick={refetch} className="btn-primary">
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const filteredBirds = birds?.filter(
+    (bird: any) =>
+      bird.commonName.toLowerCase().includes(searchTerm.toLowerCase()) || bird.thaiName.includes(searchTerm),
   )
 
   const handleRowClick = (id: string) => {
@@ -123,13 +86,42 @@ export default function Dashboard() {
     setExpandedRow(expandedRow === id ? null : id)
   }
 
+  const handleFeedbackClick = (bird: any, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectedBirdForFeedback(bird)
+    setShowFeedbackModal(true)
+  }
+
+  const handleFeedbackSubmit = (feedbackData: any) => {
+    console.log("Feedback submitted for bird:", selectedBirdForFeedback?.id, feedbackData)
+    // Here you would typically send the feedback to your backend
+    setSelectedBirdForFeedback(null)
+  }
+
+  const handleFullFeedbackClick = (birdId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    router.push(`/feedback/bird_${birdId}`)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-100 py-8">
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="mb-8 animate-fade-in">
-          <h1 className="text-4xl font-bold gradient-text mb-2">Dashboard</h1>
-          <p className="text-slate-600">Monitor bird species and analyze identification data</p>
+        <div className="flex items-center justify-between mb-8 animate-fade-in">
+          <div>
+            <h1 className="text-4xl font-bold gradient-text mb-2">Dashboard</h1>
+            <div className="flex items-center gap-4">
+              <p className="text-slate-600">Monitor bird species and analyze identification data</p>
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-2 h-2 rounded-full ${apiStatus === "online" ? "bg-green-500" : apiStatus === "offline" ? "bg-red-500" : "bg-yellow-500"}`}
+                ></div>
+                <span className="text-xs text-slate-500">
+                  API {apiStatus === "online" ? "Online" : apiStatus === "offline" ? "Offline" : "Checking"}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -190,30 +182,35 @@ export default function Dashboard() {
                   <th className="text-left py-4 px-4 font-semibold text-slate-700">Location</th>
                   <th className="text-left py-4 px-4 font-semibold text-slate-700">Confidence</th>
                   <th className="text-left py-4 px-4 font-semibold text-slate-700">Status</th>
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Last Seen</th>
+                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Feedback</th>
                   <th className="text-left py-4 px-4 font-semibold text-slate-700">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredBirds.map((bird) => (
+                {filteredBirds?.map((bird: any) => (
                   <React.Fragment key={bird.id}>
                     <tr
                       className="border-b border-slate-100 hover:bg-emerald-50 transition-all duration-200 cursor-pointer group"
                       onClick={() => handleRowClick(bird.id)}
                     >
                       <td className="py-4 px-4">
-                        <div>
-                          <p className="font-semibold text-slate-800 group-hover:text-emerald-700 transition-colors duration-200">
-                            {bird.commonName}
-                          </p>
-                          <p className="text-sm text-slate-500">{bird.thaiName}</p>
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <p className="font-semibold text-slate-800 group-hover:text-emerald-700 transition-colors duration-200">
+                              {bird.commonName}
+                            </p>
+                            <p className="text-sm text-slate-500">{bird.thaiName}</p>
+                          </div>
+                          {bird.needsFeedback && (
+                            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" title="Needs feedback" />
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-4 text-sm text-slate-600">{bird.scientificName}</td>
                       <td className="py-4 px-4 text-sm text-slate-600">{bird.found}</td>
                       <td className="py-4 px-4">
                         <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-sm rounded-full font-medium">
-                          {bird.confidence}
+                          {bird.confidence}%
                         </span>
                       </td>
                       <td className="py-4 px-4">
@@ -225,12 +222,19 @@ export default function Dashboard() {
                           {bird.status}
                         </span>
                       </td>
-                      <td className="py-4 px-4 text-sm text-slate-500">{bird.lastSeen}</td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 text-amber-500" />
+                          <span className="text-sm text-slate-600">{bird.feedbackCount}</span>
+                          {bird.needsFeedback && <span className="text-xs text-amber-600 ml-1">(needs more)</span>}
+                        </div>
+                      </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
                           <button
                             className="p-2 hover:bg-emerald-100 rounded-lg transition-colors duration-200"
                             onClick={(e) => toggleRowExpand(bird.id, e)}
+                            title="Expand details"
                           >
                             {expandedRow === bird.id ? (
                               <ChevronUp className="h-4 w-4 text-emerald-600" />
@@ -238,10 +242,23 @@ export default function Dashboard() {
                               <ChevronDown className="h-4 w-4 text-slate-400" />
                             )}
                           </button>
-                          <button className="p-2 hover:bg-emerald-100 rounded-lg transition-colors duration-200">
+                          <button
+                            className="p-2 hover:bg-blue-100 rounded-lg transition-colors duration-200"
+                            onClick={(e) => handleFeedbackClick(bird, e)}
+                            title="Quick feedback"
+                          >
+                            <MessageSquare className="h-4 w-4 text-blue-600" />
+                          </button>
+                          <button
+                            className="p-2 hover:bg-emerald-100 rounded-lg transition-colors duration-200"
+                            title="Play audio"
+                          >
                             <Volume2 className="h-4 w-4 text-slate-400" />
                           </button>
-                          <button className="p-2 hover:bg-emerald-100 rounded-lg transition-colors duration-200">
+                          <button
+                            className="p-2 hover:bg-emerald-100 rounded-lg transition-colors duration-200"
+                            title="More info"
+                          >
                             <Info className="h-4 w-4 text-slate-400" />
                           </button>
                         </div>
@@ -261,6 +278,7 @@ export default function Dashboard() {
                                 <p className="text-sm text-slate-600">Total Sightings: {bird.sightings}</p>
                                 <p className="text-sm text-slate-600">Audio Recordings: {bird.recordings}</p>
                                 <p className="text-sm text-slate-600">First Recorded: {bird.firstRecorded}</p>
+                                <p className="text-sm text-slate-600">Feedback Received: {bird.feedbackCount}</p>
                               </div>
                             </div>
                             <div>
@@ -268,9 +286,25 @@ export default function Dashboard() {
                               <p className="text-sm text-slate-600">{bird.description}</p>
                             </div>
                           </div>
-                          <div className="mt-4 flex justify-end">
-                            <button className="btn-primary text-sm" onClick={() => handleRowClick(bird.id)}>
+                          <div className="mt-6 flex gap-4">
+                            <button
+                              className="btn-primary text-sm flex items-center"
+                              onClick={() => handleRowClick(bird.id)}
+                            >
                               View Full Details
+                            </button>
+                            <button
+                              className="btn-outline text-sm flex items-center"
+                              onClick={(e) => handleFeedbackClick(bird, e)}
+                            >
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Quick Feedback
+                            </button>
+                            <button
+                              className="btn-outline text-sm flex items-center"
+                              onClick={(e) => handleFullFeedbackClick(bird.id, e)}
+                            >
+                              Full Feedback Form
                             </button>
                           </div>
                         </td>
@@ -285,7 +319,7 @@ export default function Dashboard() {
           {/* Pagination */}
           <div className="flex justify-between items-center mt-8 pt-6 border-t border-slate-200">
             <p className="text-sm text-slate-600">
-              Showing {filteredBirds.length} of {birds.length} species
+              Showing {filteredBirds?.length} of {birds?.length} species
             </p>
             <div className="flex gap-2">
               <button className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors duration-200">
@@ -303,7 +337,85 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Feedback Summary Card */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          <div className="card-modern">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Feedback Needed</h3>
+            <div className="space-y-2">
+              {birds
+                ?.filter((bird: any) => bird.needsFeedback)
+                .slice(0, 3)
+                .map((bird: any) => (
+                  <div key={bird.id} className="flex items-center justify-between p-2 bg-amber-50 rounded-lg">
+                    <span className="text-sm text-slate-700">{bird.commonName}</span>
+                    <button
+                      onClick={(e) => handleFeedbackClick(bird, e)}
+                      className="text-xs bg-amber-500 text-white px-2 py-1 rounded hover:bg-amber-600 transition-colors"
+                    >
+                      Feedback
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          <div className="card-modern">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Recent Feedback</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-2 bg-green-50 rounded-lg">
+                <span className="text-sm text-slate-700">Common Myna</span>
+                <span className="text-xs text-green-600">✓ Correct</span>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-red-50 rounded-lg">
+                <span className="text-sm text-slate-700">Tree Sparrow</span>
+                <span className="text-xs text-red-600">✗ Incorrect</span>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                <span className="text-sm text-slate-700">Rock Pigeon</span>
+                <span className="text-xs text-gray-600">? Unsure</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card-modern">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Feedback Stats</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-sm text-slate-600">Total Feedback</span>
+                <span className="font-semibold">236</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-slate-600">Accuracy Rate</span>
+                <span className="font-semibold text-green-600">87.3%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-slate-600">Needs Review</span>
+                <span className="font-semibold text-amber-600">12</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Feedback Modal */}
+      {selectedBirdForFeedback && (
+        <FeedbackModal
+          isOpen={showFeedbackModal}
+          onClose={() => {
+            setShowFeedbackModal(false)
+            setSelectedBirdForFeedback(null)
+          }}
+          birdData={{
+            id: selectedBirdForFeedback.id,
+            thaiName: selectedBirdForFeedback.thaiName,
+            commonName: selectedBirdForFeedback.commonName,
+            scientificName: selectedBirdForFeedback.scientificName,
+            confidence: selectedBirdForFeedback.confidence,
+          }}
+          onSubmitFeedback={handleFeedbackSubmit}
+        />
+      )}
     </div>
   )
 }

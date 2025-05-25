@@ -1,36 +1,57 @@
 "use client"
 
+import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, MapPin, Calendar, Volume2, Download, Share2 } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, Volume2, Download, Share2, MessageSquare, Star } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import FeedbackModal from "@/components/feedback-modal"
+import { useBird } from "@/hooks/use-api"
 
 export default function BirdDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { id } = params
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
 
-  // This would normally come from an API or database
-  const birdData = {
-    id: id,
-    thaiName: "นกกระจอกบ้าน",
-    commonName: "Eurasian Tree Sparrow",
-    scientificName: "Passer montanus (Linnaeus, 1758)",
-    found: "Pathum Thani, Khlong Luang",
-    confidence: "92.1%",
-    lastSeen: "3 hours ago",
-    status: "active",
-    habitat: "Urban areas, villages, agricultural lands",
-    description:
-      "The Eurasian tree sparrow is a passerine bird in the sparrow family with a rich chestnut crown and nape, and a black patch on each pure white cheek. The sexes are similarly plumaged, and young birds are a duller version of the adult. This sparrow breeds over most of temperate Eurasia and Southeast Asia, where it is known as the tree sparrow, and it has been introduced elsewhere including the United States, where it is known as the Eurasian tree sparrow or German sparrow to differentiate it from the native American tree sparrow.",
-    sightings: 312,
-    recordings: 98,
-    firstRecorded: "Nov 12, 2022",
-    diet: "Seeds, grains, insects, and some fruits",
-    conservation: "Least Concern",
-    length: "12.5-14 cm",
-    wingspan: "20-22 cm",
-    weight: "19-25 g",
+  // Replace the static birdData with:
+  const { bird: birdData, loading, error } = useBird(id as string)
+
+  // Add loading and error states:
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-100 py-8">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-slate-600">Loading bird details...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !birdData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-100 py-8">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <p className="text-red-600 mb-4">Bird not found or error loading data</p>
+              <Link href="/dashboard" className="btn-primary">
+                Back to Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const handleFeedbackSubmit = (feedbackData: any) => {
+    console.log("Feedback submitted for bird:", birdData.id, feedbackData)
   }
 
   return (
@@ -51,8 +72,8 @@ export default function BirdDetailPage() {
             <div className="md:w-1/3">
               <div className="rounded-xl overflow-hidden shadow-lg">
                 <Image
-                  src={`/abstract-geometric-shapes.png?height=400&width=400&query=${encodeURIComponent(birdData.commonName)} bird detailed photo`}
-                  alt={birdData.commonName}
+                  src={`/abstract-geometric-shapes.png?height=400&width=400&query=${encodeURIComponent(birdData.name)} bird detailed photo`}
+                  alt={birdData.name}
                   width={400}
                   height={400}
                   className="w-full h-auto object-cover"
@@ -75,13 +96,45 @@ export default function BirdDetailPage() {
             {/* Bird Details */}
             <div className="md:w-2/3">
               <div className="flex flex-wrap items-center gap-3 mb-4">
-                <h1 className="text-3xl font-bold text-slate-800">{birdData.commonName}</h1>
+                <h1 className="text-3xl font-bold text-slate-800">{birdData.name}</h1>
                 <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-sm rounded-full font-medium">
-                  {birdData.confidence}
+                  {birdData.confidence}%
                 </span>
               </div>
 
-              <p className="text-xl text-slate-600 mb-6">{birdData.thaiName}</p>
+              <p className="text-xl text-slate-600 mb-6">{birdData.thai_name}</p>
+
+              {/* Feedback Stats */}
+              <div className="bg-slate-50 rounded-xl p-4 mb-6">
+                <h3 className="text-lg font-semibold text-slate-700 mb-3">Community Feedback</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 text-amber-500" />
+                    <div>
+                      <p className="text-xs text-slate-500">Total Feedback</p>
+                      <p className="text-sm font-medium">{birdData.feedbackCount}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Accuracy Rate</p>
+                      <p className="text-sm font-medium text-green-600">{birdData.accuracyRate}%</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-blue-500" />
+                    <div>
+                      <p className="text-xs text-slate-500">Status</p>
+                      <p className="text-sm font-medium">
+                        {birdData.needsFeedback ? "Needs More Feedback" : "Well Documented"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div>
@@ -163,6 +216,23 @@ export default function BirdDetailPage() {
                 </div>
               </div>
 
+              {/* Feedback Actions */}
+              <div className="bg-blue-50 rounded-xl p-4 mb-6">
+                <h3 className="text-lg font-semibold text-slate-700 mb-3">Help Improve Our AI</h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Your feedback helps us improve bird identification accuracy for everyone.
+                </p>
+                <div className="flex gap-4">
+                  <button onClick={() => setShowFeedbackModal(true)} className="btn-primary flex items-center">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Quick Feedback
+                  </button>
+                  <Link href={`/feedback/bird_${birdData.id}`} className="btn-outline flex items-center">
+                    Detailed Feedback Form
+                  </Link>
+                </div>
+              </div>
+
               <div className="flex gap-4">
                 <Link href="/map" className="btn-outline">
                   View on Map
@@ -175,6 +245,20 @@ export default function BirdDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        birdData={{
+          id: birdData.id,
+          thaiName: birdData.thai_name,
+          commonName: birdData.name,
+          scientificName: birdData.scientificName,
+          confidence: birdData.confidence,
+        }}
+        onSubmitFeedback={handleFeedbackSubmit}
+      />
     </div>
   )
 }

@@ -3,15 +3,17 @@
 import type React from "react"
 import { useState } from "react"
 import { Upload, FileAudio, CheckCircle, Loader2 } from "lucide-react"
+import { useAudioPrediction } from "@/hooks/use-api"
 
 interface FileUploadProps {
-  onAnalyze?: () => void
+  onAnalyze?: (result?: any) => void
   isAnalyzing?: boolean
 }
 
 export default function FileUpload({ onAnalyze, isAnalyzing }: FileUploadProps) {
   const [file, setFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const { predictBird, loading: predicting, error: predictionError } = useAudioPrediction()
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -37,9 +39,23 @@ export default function FileUpload({ onAnalyze, isAnalyzing }: FileUploadProps) 
     }
   }
 
-  const handleAnalyzeClick = () => {
+  const handleAnalyzeClick = async () => {
     if (file && onAnalyze) {
-      onAnalyze()
+      try {
+        const result = await predictBird(file, {
+          recorded_at: new Date().toISOString(),
+          user_notes: `Uploaded via web interface: ${file.name}`,
+        })
+
+        if (result) {
+          // Call the original onAnalyze with the prediction result
+          onAnalyze(result)
+        }
+      } catch (error) {
+        console.error("Prediction failed:", error)
+        // Still call onAnalyze for fallback behavior
+        onAnalyze()
+      }
     }
   }
 
@@ -96,10 +112,10 @@ export default function FileUpload({ onAnalyze, isAnalyzing }: FileUploadProps) 
         <div className="flex justify-center animate-fade-in">
           <button
             onClick={handleAnalyzeClick}
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || predicting}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
-            {isAnalyzing ? (
+            {isAnalyzing || predicting ? (
               <>
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                 Analyzing...
