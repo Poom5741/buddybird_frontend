@@ -1,27 +1,57 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Image from "next/image"
-import { CheckCircle, Share2, Download, Volume2, MapPin, MessageSquare } from "lucide-react"
-import Link from "next/link"
-import FeedbackModal from "@/components/feedback-modal"
+import { useState } from "react";
+import Image from "next/image";
+import {
+  CheckCircle,
+  Share2,
+  Download,
+  Volume2,
+  MapPin,
+  MessageSquare,
+} from "lucide-react";
+import Link from "next/link";
+import FeedbackModal from "@/components/feedback-modal";
+
+// Dummy data for example – replace these with props or fetched result!
+const audioUrl = "/api/mock/birdsound.mp3"; // Replace with your backend audio_url
+const audioMimeType = "audio/mpeg"; // Replace with your backend mime_type if available
 
 export default function ResultPage() {
-  const [feedback, setFeedback] = useState<string | null>(null)
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   const handleFeedback = (type: string) => {
-    setFeedback(type)
-    // Here you would typically send feedback to your backend
-    setTimeout(() => {
-      // Redirect or show success message
-    }, 1000)
-  }
+    setFeedback(type);
+    setTimeout(() => {}, 1000);
+  };
 
   const handleFeedbackSubmit = (feedbackData: any) => {
-    console.log("Feedback submitted:", feedbackData)
-    setFeedback("submitted")
-  }
+    console.log("Feedback submitted:", feedbackData);
+    setFeedback("submitted");
+  };
+
+  // ----> START: Audio Player rendering logic <----
+  const renderAudioPlayer = () => {
+    if (!audioUrl) return null;
+    return (
+      <div className="flex flex-col items-center mb-6">
+        <audio
+          controls
+          preload="metadata"
+          className="w-full max-w-xs rounded-lg shadow-lg border"
+        >
+          <source src={audioUrl} type={audioMimeType} />
+          {/* Fallback for browsers that don't support the mime type */}
+          Your browser does not support the audio element.
+        </audio>
+        <span className="text-xs text-slate-400 mt-2">
+          {audioMimeType.replace("audio/", "").toUpperCase()} audio
+        </span>
+      </div>
+    );
+  };
+  // ----> END: Audio Player rendering logic <----
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-100 py-8">
@@ -34,7 +64,9 @@ export default function ResultPage() {
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Analysis Complete
               </div>
-              <h1 className="text-3xl font-bold gradient-text">Identification Result</h1>
+              <h1 className="text-3xl font-bold gradient-text">
+                Identification Result
+              </h1>
             </div>
 
             {/* Bird Image */}
@@ -49,33 +81,38 @@ export default function ResultPage() {
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
                 </div>
-                <button className="absolute top-4 right-4 p-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg hover:bg-white transition-all duration-200">
-                  <Volume2 className="h-5 w-5 text-slate-600" />
-                </button>
+                {/* Play button not needed – use the audio player below */}
               </div>
             </div>
+
+            {/* --- AUDIO PLAYER --- */}
+            {renderAudioPlayer()}
+            {/* --- END AUDIO PLAYER --- */}
 
             {/* Bird Information */}
             <div className="space-y-6 mb-8">
               <div className="text-center">
-                <h2 className="text-2xl font-bold text-slate-800 mb-2">Eurasian Tree Sparrow</h2>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">
+                  Eurasian Tree Sparrow
+                </h2>
                 <p className="text-lg text-slate-600 mb-4">นกกระจอกบ้าน</p>
-
-                {/* Confidence Score */}
                 <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold text-lg">
                   <span className="mr-2">Confidence:</span>
                   <span className="text-2xl">75.43%</span>
                 </div>
               </div>
 
-              {/* Additional Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-slate-50 rounded-xl p-4">
-                  <h4 className="font-semibold text-slate-700 mb-2">Scientific Name</h4>
+                  <h4 className="font-semibold text-slate-700 mb-2">
+                    Scientific Name
+                  </h4>
                   <p className="text-slate-600 italic">Passer montanus</p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4">
-                  <h4 className="font-semibold text-slate-700 mb-2">Common Locations</h4>
+                  <h4 className="font-semibold text-slate-700 mb-2">
+                    Common Locations
+                  </h4>
                   <div className="flex items-center text-slate-600">
                     <MapPin className="h-4 w-4 mr-1" />
                     <span>Pathum Thani, Khlong Luang</span>
@@ -91,14 +128,20 @@ export default function ResultPage() {
                   <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <CheckCircle className="h-8 w-8 text-emerald-600" />
                   </div>
-                  <p className="text-lg font-semibold text-emerald-700">ขอบคุณสำหรับความคิดเห็น!</p>
+                  <p className="text-lg font-semibold text-emerald-700">
+                    ขอบคุณสำหรับความคิดเห็น!
+                  </p>
                   <p className="text-slate-600">Thank you for your feedback!</p>
                 </div>
               ) : (
                 <>
                   <div className="text-center mb-4">
-                    <p className="text-slate-600 font-medium">การระบุนกนี้ถูกต้องหรือไม่?</p>
-                    <p className="text-sm text-slate-500">Was this identification correct?</p>
+                    <p className="text-slate-600 font-medium">
+                      การระบุนกนี้ถูกต้องหรือไม่?
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      Was this identification correct?
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -109,7 +152,10 @@ export default function ResultPage() {
                       <MessageSquare className="h-5 w-5 mr-2" />
                       ประเมินผลการระบุ
                     </button>
-                    <Link href="/feedback/result_001" className="btn-outline flex items-center justify-center">
+                    <Link
+                      href="/feedback/result_001"
+                      className="btn-outline flex items-center justify-center"
+                    >
                       แบบประเมินแบบเต็ม
                     </Link>
                   </div>
@@ -134,7 +180,9 @@ export default function ResultPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
             <div className="card-modern text-center">
               <h3 className="text-xl font-semibold mb-4">Analyze Another</h3>
-              <p className="text-slate-600 mb-4">Upload another audio file for identification</p>
+              <p className="text-slate-600 mb-4">
+                Upload another audio file for identification
+              </p>
               <Link href="/analyze" className="btn-primary">
                 New Analysis
               </Link>
@@ -142,7 +190,9 @@ export default function ResultPage() {
 
             <div className="card-modern text-center">
               <h3 className="text-xl font-semibold mb-4">View on Map</h3>
-              <p className="text-slate-600 mb-4">See where this species has been spotted</p>
+              <p className="text-slate-600 mb-4">
+                See where this species has been spotted
+              </p>
               <Link href="/map" className="btn-outline">
                 Open Map
               </Link>
@@ -165,5 +215,5 @@ export default function ResultPage() {
         onSubmitFeedback={handleFeedbackSubmit}
       />
     </div>
-  )
+  );
 }

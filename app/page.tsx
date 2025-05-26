@@ -106,7 +106,7 @@ export default function Home() {
       {/* Dashboard Preview */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
             <div className="bg-gradient-to-br from-cyan-900 via-blue-900 to-indigo-900 rounded-2xl p-8 shadow-2xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border border-cyan-700/50 animate-slide-up">
               <MapView />
               <div className="text-center mt-6">
@@ -118,10 +118,13 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-violet-900 via-purple-900 to-fuchsia-900 rounded-2xl p-8 shadow-2xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border border-violet-700/50 animate-slide-up">
-              <h3 className="text-2xl font-semibold mb-6 text-center text-violet-50">Species Database</h3>
+            <div className="card-modern animate-slide-up">
+              <div className="mb-6">
+                <h3 className="text-2xl font-semibold mb-2 text-slate-800">Species Database</h3>
+                <p className="text-slate-600">Recent bird identifications and analysis</p>
+              </div>
               <BirdTable />
-              <div className="text-center mt-6">
+              <div className="text-center mt-6 pt-4 border-t border-slate-200">
                 <Link href="/dashboard" className="btn-primary">
                   View Full Dashboard
                 </Link>

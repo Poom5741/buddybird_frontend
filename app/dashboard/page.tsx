@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import React from "react"
-import { useState } from "react"
+import React from "react";
+import { useState } from "react";
 import {
   Search,
   Filter,
@@ -16,52 +16,134 @@ import {
   Volume2,
   MessageSquare,
   Star,
-} from "lucide-react"
-import { useRouter } from "next/navigation"
-import FeedbackModal from "@/components/feedback-modal"
-import { useBirds } from "@/hooks/use-api"
-import { useHealthCheck } from "@/hooks/use-api"
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import FeedbackModal from "@/components/feedback-modal";
+import {
+  useDashboardBirds,
+  useDashboardStats,
+  useHealthCheck,
+} from "@/hooks/use-api";
+
+// CSV export utility function
+const exportToCSV = (data: any[], filename: string) => {
+  if (!data || data.length === 0) {
+    alert("No data to export");
+    return;
+  }
+
+  // Define CSV headers
+  const headers = [
+    "ID",
+    "Common Name",
+    "Thai Name",
+    "Scientific Name",
+    "Location",
+    "Confidence",
+    "Status",
+    "Habitat",
+    "Sightings",
+    "Recordings",
+    "First Recorded",
+    "Feedback Count",
+    "Description",
+  ];
+
+  // Convert data to CSV format
+  const csvContent = [
+    headers.join(","), // Header row
+    ...data.map((bird) =>
+      [
+        bird.id || "",
+        `"${(bird.commonName || bird.name || "").replace(/"/g, '""')}"`,
+        `"${(bird.thaiName || bird.localName || "").replace(/"/g, '""')}"`,
+        `"${(bird.scientificName || "").replace(/"/g, '""')}"`,
+        `"${(bird.found || "").replace(/"/g, '""')}"`,
+        bird.confidence || "",
+        bird.status || "",
+        `"${(bird.habitat || bird.habitats || "").replace(/"/g, '""')}"`,
+        bird.sightings || "",
+        bird.recordings || "",
+        bird.firstRecorded || "",
+        bird.feedbackCount || "",
+        `"${(bird.description || "").replace(/"/g, '""')}"`,
+      ].join(",")
+    ),
+  ].join("\n");
+
+  // Create and trigger download
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+
+  if (link.download !== undefined) {
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } else {
+    // Fallback for older browsers
+    const csvData = `data:text/csv;charset=utf-8,${encodeURIComponent(
+      csvContent
+    )}`;
+    window.open(csvData);
+  }
+};
 
 export default function Dashboard() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedFilter, setSelectedFilter] = useState("all")
-  const [expandedRow, setExpandedRow] = useState<string | null>(null)
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
-  const [selectedBirdForFeedback, setSelectedBirdForFeedback] = useState<any>(null)
-  const router = useRouter()
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [selectedBirdForFeedback, setSelectedBirdForFeedback] =
+    useState<any>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const router = useRouter();
 
-  const stats = [
-    { label: "Total Species", value: "1,247", icon: TrendingUp, color: "emerald" },
-    { label: "Active Users", value: "8,932", icon: Users, color: "blue" },
-    { label: "Locations", value: "156", icon: MapPin, color: "purple" },
-    { label: "This Month", value: "2,341", icon: Calendar, color: "orange" },
-  ]
+  // Use the new API hooks
+  const {
+    birds,
+    loading: birdsLoading,
+    error: birdsError,
+    refetch,
+  } = useDashboardBirds();
+  const {
+    stats,
+    loading: statsLoading,
+    error: statsError,
+  } = useDashboardStats();
+  const apiStatus = useHealthCheck();
 
-  const { birds, loading, error, refetch } = useBirds()
-  const apiStatus = useHealthCheck()
-
-  if (loading) {
+  if (birdsLoading || statsLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-100 py-8">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-slate-600">Loading bird data...</p>
+              <p className="text-slate-600">Loading dashboard data...</p>
             </div>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
-  if (error) {
+  if (birdsError || statsError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-100 py-8">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <p className="text-red-600 mb-4">Error loading data: {error}</p>
+              <p className="text-red-600 mb-4">
+                Error loading data: {birdsError || statsError}
+              </p>
               <button onClick={refetch} className="btn-primary">
                 Try Again
               </button>
@@ -69,39 +151,123 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
-  const filteredBirds = birds?.filter(
-    (bird: any) =>
-      bird.commonName.toLowerCase().includes(searchTerm.toLowerCase()) || bird.thaiName.includes(searchTerm),
-  )
+  // Create stats array from real API data
+  const dashboardStats = stats
+    ? [
+        {
+          label: "Total Species",
+          value: stats.total_species.toLocaleString(),
+          icon: TrendingUp,
+          color: "emerald",
+        },
+        {
+          label: "Active Users",
+          value: stats.active_users.toLocaleString(),
+          icon: Users,
+          color: "blue",
+        },
+        {
+          label: "Locations",
+          value: stats.locations.toString(),
+          icon: MapPin,
+          color: "purple",
+        },
+        {
+          label: "This Month",
+          value: stats.this_month_predictions.toString(),
+          icon: Calendar,
+          color: "orange",
+        },
+      ]
+    : [];
+
+  const filteredBirds = birds?.filter((bird: any) => {
+    // Provide safe fallbacks for each property
+    const commonName = (bird.commonName || bird.name || "").toLowerCase();
+    const thaiName = (bird.thaiName || bird.localName || "").toLowerCase();
+    return (
+      commonName.includes(searchTerm.toLowerCase()) ||
+      thaiName.includes(searchTerm.toLowerCase())
+    );
+  });
 
   const handleRowClick = (id: string) => {
-    router.push(`/birds/${id}`)
-  }
+    router.push(`/birds/${id}`);
+  };
 
   const toggleRowExpand = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setExpandedRow(expandedRow === id ? null : id)
-  }
+    e.stopPropagation();
+    setExpandedRow(expandedRow === id ? null : id);
+  };
 
   const handleFeedbackClick = (bird: any, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setSelectedBirdForFeedback(bird)
-    setShowFeedbackModal(true)
-  }
+    e.stopPropagation();
+    setSelectedBirdForFeedback(bird);
+    setShowFeedbackModal(true);
+  };
 
   const handleFeedbackSubmit = (feedbackData: any) => {
-    console.log("Feedback submitted for bird:", selectedBirdForFeedback?.id, feedbackData)
+    console.log(
+      "Feedback submitted for bird:",
+      selectedBirdForFeedback?.id,
+      feedbackData
+    );
     // Here you would typically send the feedback to your backend
-    setSelectedBirdForFeedback(null)
-  }
+    setSelectedBirdForFeedback(null);
+  };
 
   const handleFullFeedbackClick = (birdId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    router.push(`/feedback/bird_${birdId}`)
-  }
+    e.stopPropagation();
+    router.push(`/feedback/bird_${birdId}`);
+  };
+
+  // Handle CSV export
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+
+      // Use filtered data if search/filter is active, otherwise use all birds
+      const dataToExport =
+        filteredBirds && filteredBirds.length > 0 ? filteredBirds : birds || [];
+
+      if (dataToExport.length === 0) {
+        alert("No data available to export");
+        return;
+      }
+
+      // Generate filename with current date
+      const currentDate = new Date().toISOString().split("T")[0];
+      const filename = `bird_species_data_${currentDate}.csv`;
+
+      // Export the data
+      exportToCSV(dataToExport, filename);
+
+      // Show success message
+      console.log(`Exported ${dataToExport.length} records to ${filename}`);
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to export data. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Get feedback status icon
+  const getFeedbackStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "correct":
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "incorrect":
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case "unsure":
+        return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+      default:
+        return <MessageSquare className="h-4 w-4 text-gray-500" />;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-100 py-8">
@@ -111,13 +277,26 @@ export default function Dashboard() {
           <div>
             <h1 className="text-4xl font-bold gradient-text mb-2">Dashboard</h1>
             <div className="flex items-center gap-4">
-              <p className="text-slate-600">Monitor bird species and analyze identification data</p>
+              <p className="text-slate-600">
+                Monitor bird species and analyze identification data
+              </p>
               <div className="flex items-center gap-2">
                 <div
-                  className={`w-2 h-2 rounded-full ${apiStatus === "online" ? "bg-green-500" : apiStatus === "offline" ? "bg-red-500" : "bg-yellow-500"}`}
+                  className={`w-2 h-2 rounded-full ${
+                    apiStatus === "online"
+                      ? "bg-green-500"
+                      : apiStatus === "offline"
+                      ? "bg-red-500"
+                      : "bg-yellow-500"
+                  }`}
                 ></div>
                 <span className="text-xs text-slate-500">
-                  API {apiStatus === "online" ? "Online" : apiStatus === "offline" ? "Offline" : "Checking"}
+                  API{" "}
+                  {apiStatus === "online"
+                    ? "Online"
+                    : apiStatus === "offline"
+                    ? "Offline"
+                    : "Checking"}
                 </span>
               </div>
             </div>
@@ -126,14 +305,22 @@ export default function Dashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <div key={index} className="card-modern animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
+          {dashboardStats.map((stat, index) => (
+            <div
+              key={index}
+              className="card-modern animate-slide-up"
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-600 mb-1">{stat.label}</p>
-                  <p className="text-2xl font-bold text-slate-800">{stat.value}</p>
+                  <p className="text-2xl font-bold text-slate-800">
+                    {stat.value}
+                  </p>
                 </div>
-                <div className={`p-3 bg-gradient-to-br from-${stat.color}-500 to-${stat.color}-600 rounded-xl`}>
+                <div
+                  className={`p-3 bg-gradient-to-br from-${stat.color}-500 to-${stat.color}-600 rounded-xl`}
+                >
                   <stat.icon className="h-6 w-6 text-white" />
                 </div>
               </div>
@@ -145,7 +332,9 @@ export default function Dashboard() {
         <div className="card-modern animate-slide-up">
           {/* Controls */}
           <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center mb-8">
-            <h2 className="text-2xl font-bold text-slate-800">Species Database</h2>
+            <h2 className="text-2xl font-bold text-slate-800">
+              Species Database
+            </h2>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
               <div className="relative">
@@ -164,9 +353,22 @@ export default function Dashboard() {
                   <Filter className="h-4 w-4 mr-2" />
                   Filter
                 </button>
-                <button className="btn-primary flex items-center">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
+                <button
+                  className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleExport}
+                  disabled={isExporting || !birds || birds.length === 0}
+                  title={
+                    !birds || birds.length === 0
+                      ? "No data to export"
+                      : "Export filtered data to CSV"
+                  }
+                >
+                  <Download
+                    className={`h-4 w-4 mr-2 ${
+                      isExporting ? "animate-bounce" : ""
+                    }`}
+                  />
+                  {isExporting ? "Exporting..." : "Export"}
                 </button>
               </div>
             </div>
@@ -177,13 +379,27 @@ export default function Dashboard() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Species</th>
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Scientific Name</th>
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Location</th>
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Confidence</th>
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Status</th>
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Feedback</th>
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Actions</th>
+                  <th className="text-left py-4 px-4 font-semibold text-slate-700">
+                    Species
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-slate-700">
+                    Scientific Name
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-slate-700">
+                    Location
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-slate-700">
+                    Confidence
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-slate-700">
+                    Status
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-slate-700">
+                    Feedback
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-slate-700">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -197,17 +413,26 @@ export default function Dashboard() {
                         <div className="flex items-center gap-3">
                           <div>
                             <p className="font-semibold text-slate-800 group-hover:text-emerald-700 transition-colors duration-200">
-                              {bird.commonName}
+                              {bird.commonName || bird.name}
                             </p>
-                            <p className="text-sm text-slate-500">{bird.thaiName}</p>
+                            <p className="text-sm text-slate-500">
+                              {bird.thaiName || bird.localName}
+                            </p>
                           </div>
                           {bird.needsFeedback && (
-                            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" title="Needs feedback" />
+                            <div
+                              className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"
+                              title="Needs feedback"
+                            />
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-sm text-slate-600">{bird.scientificName}</td>
-                      <td className="py-4 px-4 text-sm text-slate-600">{bird.found}</td>
+                      <td className="py-4 px-4 text-sm text-slate-600">
+                        {bird.scientificName}
+                      </td>
+                      <td className="py-4 px-4 text-sm text-slate-600">
+                        {bird.found}
+                      </td>
                       <td className="py-4 px-4">
                         <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-sm rounded-full font-medium">
                           {bird.confidence}%
@@ -216,7 +441,9 @@ export default function Dashboard() {
                       <td className="py-4 px-4">
                         <span
                           className={`px-3 py-1 text-sm rounded-full font-medium ${
-                            bird.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                            bird.status === "active"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-100 text-gray-700"
                           }`}
                         >
                           {bird.status}
@@ -225,8 +452,14 @@ export default function Dashboard() {
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 text-amber-500" />
-                          <span className="text-sm text-slate-600">{bird.feedbackCount}</span>
-                          {bird.needsFeedback && <span className="text-xs text-amber-600 ml-1">(needs more)</span>}
+                          <span className="text-sm text-slate-600">
+                            {bird.feedbackCount}
+                          </span>
+                          {bird.needsFeedback && (
+                            <span className="text-xs text-amber-600 ml-1">
+                              (needs more)
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-4">
@@ -269,21 +502,52 @@ export default function Dashboard() {
                         <td colSpan={7} className="py-4 px-6 animate-fade-in">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                              <h4 className="font-semibold text-slate-700 mb-2">Habitat</h4>
-                              <p className="text-sm text-slate-600">{bird.habitat}</p>
+                              <h4 className="font-semibold text-slate-700 mb-2">
+                                Habitat
+                              </h4>
+                              <p className="text-sm text-slate-600">
+                                {bird.habitat || bird.habitats}
+                              </p>
                             </div>
                             <div>
-                              <h4 className="font-semibold text-slate-700 mb-2">Statistics</h4>
+                              <h4 className="font-semibold text-slate-700 mb-2">
+                                Statistics
+                              </h4>
                               <div className="space-y-1">
-                                <p className="text-sm text-slate-600">Total Sightings: {bird.sightings}</p>
-                                <p className="text-sm text-slate-600">Audio Recordings: {bird.recordings}</p>
-                                <p className="text-sm text-slate-600">First Recorded: {bird.firstRecorded}</p>
-                                <p className="text-sm text-slate-600">Feedback Received: {bird.feedbackCount}</p>
+                                <p className="text-sm text-slate-600">
+                                  Total Sightings: {bird.sightings}
+                                </p>
+                                <p className="text-sm text-slate-600">
+                                  Audio Recordings: {bird.recordings}
+                                </p>
+                                <p className="text-sm text-slate-600">
+                                  First Recorded: {bird.firstRecorded}
+                                </p>
+                                <p className="text-sm text-slate-600">
+                                  Feedback Received: {bird.feedbackCount}
+                                </p>
+                                <p className="text-sm text-slate-600">
+                                  Conservation: {bird.conservation_status}
+                                </p>
                               </div>
                             </div>
                             <div>
-                              <h4 className="font-semibold text-slate-700 mb-2">Description</h4>
-                              <p className="text-sm text-slate-600">{bird.description}</p>
+                              <h4 className="font-semibold text-slate-700 mb-2">
+                                Description
+                              </h4>
+                              <p className="text-sm text-slate-600">
+                                {bird.description}
+                              </p>
+                              {bird.diet && (
+                                <div className="mt-2">
+                                  <h5 className="font-medium text-slate-700 text-xs mb-1">
+                                    Diet
+                                  </h5>
+                                  <p className="text-xs text-slate-500">
+                                    {bird.diet}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div className="mt-6 flex gap-4">
@@ -302,7 +566,9 @@ export default function Dashboard() {
                             </button>
                             <button
                               className="btn-outline text-sm flex items-center"
-                              onClick={(e) => handleFullFeedbackClick(bird.id, e)}
+                              onClick={(e) =>
+                                handleFullFeedbackClick(bird.id, e)
+                              }
                             >
                               Full Feedback Form
                             </button>
@@ -338,17 +604,24 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Feedback Summary Card */}
+        {/* Feedback Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
           <div className="card-modern">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Feedback Needed</h3>
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">
+              Feedback Needed
+            </h3>
             <div className="space-y-2">
               {birds
                 ?.filter((bird: any) => bird.needsFeedback)
                 .slice(0, 3)
                 .map((bird: any) => (
-                  <div key={bird.id} className="flex items-center justify-between p-2 bg-amber-50 rounded-lg">
-                    <span className="text-sm text-slate-700">{bird.commonName}</span>
+                  <div
+                    key={bird.id}
+                    className="flex items-center justify-between p-2 bg-amber-50 rounded-lg"
+                  >
+                    <span className="text-sm text-slate-700">
+                      {bird.commonName || bird.name}
+                    </span>
                     <button
                       onClick={(e) => handleFeedbackClick(bird, e)}
                       className="text-xs bg-amber-500 text-white px-2 py-1 rounded hover:bg-amber-600 transition-colors"
@@ -361,37 +634,57 @@ export default function Dashboard() {
           </div>
 
           <div className="card-modern">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Recent Feedback</h3>
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">
+              Recent Feedback
+            </h3>
             <div className="space-y-2">
-              <div className="flex items-center justify-between p-2 bg-green-50 rounded-lg">
-                <span className="text-sm text-slate-700">Common Myna</span>
-                <span className="text-xs text-green-600">✓ Correct</span>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-red-50 rounded-lg">
-                <span className="text-sm text-slate-700">Tree Sparrow</span>
-                <span className="text-xs text-red-600">✗ Incorrect</span>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                <span className="text-sm text-slate-700">Rock Pigeon</span>
-                <span className="text-xs text-gray-600">? Unsure</span>
-              </div>
+              {stats?.recent_feedback.slice(0, 3).map((feedback, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+                >
+                  <span className="text-sm text-slate-700">
+                    {feedback.bird_name}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {getFeedbackStatusIcon(feedback.status)}
+                    <span className="text-xs text-slate-600 capitalize">
+                      {feedback.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
           <div className="card-modern">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Feedback Stats</h3>
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">
+              Feedback Stats
+            </h3>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-slate-600">Total Feedback</span>
-                <span className="font-semibold">236</span>
+                <span className="font-semibold">{stats?.total_feedback}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-slate-600">Accuracy Rate</span>
-                <span className="font-semibold text-green-600">87.3%</span>
+                <span className="font-semibold text-green-600">
+                  {stats?.accuracy_rate}%
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-slate-600">Needs Review</span>
-                <span className="font-semibold text-amber-600">12</span>
+                <span className="font-semibold text-amber-600">
+                  {stats?.needs_review}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-slate-600">
+                  Total Predictions
+                </span>
+                <span className="font-semibold">
+                  {stats?.total_predictions}
+                </span>
               </div>
             </div>
           </div>
@@ -403,13 +696,17 @@ export default function Dashboard() {
         <FeedbackModal
           isOpen={showFeedbackModal}
           onClose={() => {
-            setShowFeedbackModal(false)
-            setSelectedBirdForFeedback(null)
+            setShowFeedbackModal(false);
+            setSelectedBirdForFeedback(null);
           }}
           birdData={{
             id: selectedBirdForFeedback.id,
-            thaiName: selectedBirdForFeedback.thaiName,
-            commonName: selectedBirdForFeedback.commonName,
+            thaiName:
+              selectedBirdForFeedback.thaiName ||
+              selectedBirdForFeedback.localName,
+            commonName:
+              selectedBirdForFeedback.commonName ||
+              selectedBirdForFeedback.name,
             scientificName: selectedBirdForFeedback.scientificName,
             confidence: selectedBirdForFeedback.confidence,
           }}
@@ -417,5 +714,5 @@ export default function Dashboard() {
         />
       )}
     </div>
-  )
+  );
 }
